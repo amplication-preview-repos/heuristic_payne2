@@ -13,6 +13,12 @@ import * as graphql from "@nestjs/graphql";
 import { GraphQLError } from "graphql";
 import { isRecordNotFoundError } from "../../prisma.util";
 import { MetaQueryPayload } from "../../util/MetaQueryPayload";
+import * as nestAccessControl from "nest-access-control";
+import * as gqlACGuard from "../../auth/gqlAC.guard";
+import { GqlDefaultAuthGuard } from "../../auth/gqlDefaultAuth.guard";
+import * as common from "@nestjs/common";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
 import { Budget } from "./Budget";
 import { BudgetCountArgs } from "./BudgetCountArgs";
 import { BudgetFindManyArgs } from "./BudgetFindManyArgs";
@@ -22,10 +28,20 @@ import { UpdateBudgetArgs } from "./UpdateBudgetArgs";
 import { DeleteBudgetArgs } from "./DeleteBudgetArgs";
 import { User } from "../../user/base/User";
 import { BudgetService } from "../budget.service";
+@common.UseGuards(GqlDefaultAuthGuard, gqlACGuard.GqlACGuard)
 @graphql.Resolver(() => Budget)
 export class BudgetResolverBase {
-  constructor(protected readonly service: BudgetService) {}
+  constructor(
+    protected readonly service: BudgetService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
 
+  @graphql.Query(() => MetaQueryPayload)
+  @nestAccessControl.UseRoles({
+    resource: "Budget",
+    action: "read",
+    possession: "any",
+  })
   async _budgetsMeta(
     @graphql.Args() args: BudgetCountArgs
   ): Promise<MetaQueryPayload> {
@@ -35,12 +51,24 @@ export class BudgetResolverBase {
     };
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => [Budget])
+  @nestAccessControl.UseRoles({
+    resource: "Budget",
+    action: "read",
+    possession: "any",
+  })
   async budgets(@graphql.Args() args: BudgetFindManyArgs): Promise<Budget[]> {
     return this.service.budgets(args);
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => Budget, { nullable: true })
+  @nestAccessControl.UseRoles({
+    resource: "Budget",
+    action: "read",
+    possession: "own",
+  })
   async budget(
     @graphql.Args() args: BudgetFindUniqueArgs
   ): Promise<Budget | null> {
@@ -51,7 +79,13 @@ export class BudgetResolverBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Budget)
+  @nestAccessControl.UseRoles({
+    resource: "Budget",
+    action: "create",
+    possession: "any",
+  })
   async createBudget(@graphql.Args() args: CreateBudgetArgs): Promise<Budget> {
     return await this.service.createBudget({
       ...args,
@@ -67,7 +101,13 @@ export class BudgetResolverBase {
     });
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Budget)
+  @nestAccessControl.UseRoles({
+    resource: "Budget",
+    action: "update",
+    possession: "any",
+  })
   async updateBudget(
     @graphql.Args() args: UpdateBudgetArgs
   ): Promise<Budget | null> {
@@ -95,6 +135,11 @@ export class BudgetResolverBase {
   }
 
   @graphql.Mutation(() => Budget)
+  @nestAccessControl.UseRoles({
+    resource: "Budget",
+    action: "delete",
+    possession: "any",
+  })
   async deleteBudget(
     @graphql.Args() args: DeleteBudgetArgs
   ): Promise<Budget | null> {
@@ -110,9 +155,15 @@ export class BudgetResolverBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.ResolveField(() => User, {
     nullable: true,
     name: "user",
+  })
+  @nestAccessControl.UseRoles({
+    resource: "User",
+    action: "read",
+    possession: "any",
   })
   async getUser(@graphql.Parent() parent: Budget): Promise<User | null> {
     const result = await this.service.getUser(parent.id);

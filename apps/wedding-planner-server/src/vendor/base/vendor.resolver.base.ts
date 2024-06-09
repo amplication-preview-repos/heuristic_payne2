@@ -13,6 +13,12 @@ import * as graphql from "@nestjs/graphql";
 import { GraphQLError } from "graphql";
 import { isRecordNotFoundError } from "../../prisma.util";
 import { MetaQueryPayload } from "../../util/MetaQueryPayload";
+import * as nestAccessControl from "nest-access-control";
+import * as gqlACGuard from "../../auth/gqlAC.guard";
+import { GqlDefaultAuthGuard } from "../../auth/gqlDefaultAuth.guard";
+import * as common from "@nestjs/common";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
 import { Vendor } from "./Vendor";
 import { VendorCountArgs } from "./VendorCountArgs";
 import { VendorFindManyArgs } from "./VendorFindManyArgs";
@@ -22,10 +28,20 @@ import { UpdateVendorArgs } from "./UpdateVendorArgs";
 import { DeleteVendorArgs } from "./DeleteVendorArgs";
 import { User } from "../../user/base/User";
 import { VendorService } from "../vendor.service";
+@common.UseGuards(GqlDefaultAuthGuard, gqlACGuard.GqlACGuard)
 @graphql.Resolver(() => Vendor)
 export class VendorResolverBase {
-  constructor(protected readonly service: VendorService) {}
+  constructor(
+    protected readonly service: VendorService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
 
+  @graphql.Query(() => MetaQueryPayload)
+  @nestAccessControl.UseRoles({
+    resource: "Vendor",
+    action: "read",
+    possession: "any",
+  })
   async _vendorsMeta(
     @graphql.Args() args: VendorCountArgs
   ): Promise<MetaQueryPayload> {
@@ -35,12 +51,24 @@ export class VendorResolverBase {
     };
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => [Vendor])
+  @nestAccessControl.UseRoles({
+    resource: "Vendor",
+    action: "read",
+    possession: "any",
+  })
   async vendors(@graphql.Args() args: VendorFindManyArgs): Promise<Vendor[]> {
     return this.service.vendors(args);
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => Vendor, { nullable: true })
+  @nestAccessControl.UseRoles({
+    resource: "Vendor",
+    action: "read",
+    possession: "own",
+  })
   async vendor(
     @graphql.Args() args: VendorFindUniqueArgs
   ): Promise<Vendor | null> {
@@ -51,7 +79,13 @@ export class VendorResolverBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Vendor)
+  @nestAccessControl.UseRoles({
+    resource: "Vendor",
+    action: "create",
+    possession: "any",
+  })
   async createVendor(@graphql.Args() args: CreateVendorArgs): Promise<Vendor> {
     return await this.service.createVendor({
       ...args,
@@ -67,7 +101,13 @@ export class VendorResolverBase {
     });
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Vendor)
+  @nestAccessControl.UseRoles({
+    resource: "Vendor",
+    action: "update",
+    possession: "any",
+  })
   async updateVendor(
     @graphql.Args() args: UpdateVendorArgs
   ): Promise<Vendor | null> {
@@ -95,6 +135,11 @@ export class VendorResolverBase {
   }
 
   @graphql.Mutation(() => Vendor)
+  @nestAccessControl.UseRoles({
+    resource: "Vendor",
+    action: "delete",
+    possession: "any",
+  })
   async deleteVendor(
     @graphql.Args() args: DeleteVendorArgs
   ): Promise<Vendor | null> {
@@ -110,9 +155,15 @@ export class VendorResolverBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.ResolveField(() => User, {
     nullable: true,
     name: "user",
+  })
+  @nestAccessControl.UseRoles({
+    resource: "User",
+    action: "read",
+    possession: "any",
   })
   async getUser(@graphql.Parent() parent: Vendor): Promise<User | null> {
     const result = await this.service.getUser(parent.id);
