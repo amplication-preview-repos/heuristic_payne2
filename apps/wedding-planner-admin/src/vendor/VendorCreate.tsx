@@ -1,0 +1,32 @@
+import * as React from "react";
+import {
+  Create,
+  SimpleForm,
+  CreateProps,
+  TextInput,
+  SelectInput,
+  ReferenceInput,
+} from "react-admin";
+import { UserTitle } from "../user/UserTitle";
+
+export const VendorCreate = (props: CreateProps): React.ReactElement => {
+  return (
+    <Create {...props}>
+      <SimpleForm>
+        <TextInput label="contactEmail" source="contactEmail" type="email" />
+        <TextInput label="name" source="name" />
+        <SelectInput
+          source="serviceType"
+          label="serviceType"
+          choices={[{ label: "Option 1", value: "Option1" }]}
+          optionText="label"
+          allowEmpty
+          optionValue="value"
+        />
+        <ReferenceInput source="user.id" reference="User" label="user">
+          <SelectInput optionText={UserTitle} />
+        </ReferenceInput>
+      </SimpleForm>
+    </Create>
+  );
+};
